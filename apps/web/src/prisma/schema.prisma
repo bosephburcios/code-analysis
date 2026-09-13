@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Repository {
+  id            String           @id @default(cuid())
+  owner         String
+  name          String
+  fullName      String           @unique
+  githubUrl     String
+  description   String?
+  defaultBranch String
+  language      String?
+  stars         Int              @default(0)
+  forks         Int              @default(0)
+  visibility    String           @default("public")
+  status        RepositoryStatus @default(IMPORTED)
+
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+enum RepositoryStatus {
+  IMPORTED
+  ANALYZING
+  READY
+  FAILED
+}
