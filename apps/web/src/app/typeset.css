@@ -1,0 +1,51 @@
+/* Local typography presets based on the supplied Typeset reference.
+   Apply to prose, not whole interactive panels. Utilities remain authoritative. */
+@layer components {
+  .typeset {
+    --typeset-font-body: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    --typeset-font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    --typeset-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+    --typeset-size: 1em;
+    --typeset-leading: 1.75;
+    --typeset-flow: 1.25em;
+  }
+
+  .typeset-docs {
+    --typeset-size: 0.9375rem;
+    --typeset-leading: 1.75;
+    --typeset-flow: 1.25em;
+  }
+
+  .typeset-compact {
+    --typeset-size: 0.875rem;
+    --typeset-leading: 1.6;
+    --typeset-flow: 1em;
+  }
+
+  .typeset:not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) {
+    font-family: var(--typeset-font-body);
+    font-size: var(--typeset-size);
+    line-height: var(--typeset-leading);
+    overflow-wrap: anywhere;
+
+    & > :where(* + *):not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) {
+      margin-block-start: var(--typeset-flow);
+    }
+
+    & :where(h1, h2, h3, h4, h5, h6):not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) {
+      font-family: var(--typeset-font-heading);
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: -0.025em;
+      text-wrap: balance;
+    }
+
+    & :where(h1):not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) { font-size: 2em; }
+    & :where(h2):not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) { font-size: 1.5em; }
+    & :where(h3):not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) { font-size: 1.25em; }
+    & :where(code, pre, kbd):not(:where(.not-typeset, .not-typeset *, [data-not-typeset], [data-not-typeset] *)) {
+      font-family: var(--typeset-font-mono);
+      font-size: 0.875em;
+    }
+  }
+}

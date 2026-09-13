@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/get-session";
 
 export async function POST(request: Request) {
   try {
+    const session = await getSession();
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "You must be signed in to import a repository." },
+        { status: 401 }
+      );
+    }
+
     const { url } = await request.json();
 
     if (!url) {
@@ -42,6 +52,9 @@ export async function POST(request: Request) {
         headers: {
           Accept: "application/vnd.github+json",
           "X-GitHub-Api-Version": "2022-11-28",
+          ...(process.env.GITHUB_TOKEN
+            ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+            : {}),
         },
       }
     );
@@ -67,7 +80,10 @@ export async function POST(request: Request) {
 
     const repository = await prisma.repository.upsert({
       where: {
-        fullName: githubRepo.full_name,
+        userId_fullName: {
+          userId: session.user.id,
+          fullName: githubRepo.full_name,
+        },
       },
       update: {
         description: githubRepo.description,
@@ -88,6 +104,7 @@ export async function POST(request: Request) {
         stars: githubRepo.stargazers_count,
         forks: githubRepo.forks_count,
         visibility: githubRepo.visibility ?? "public",
+        userId: session.user.id,
       },
     });
 

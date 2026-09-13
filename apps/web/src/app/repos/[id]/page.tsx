@@ -1,15 +1,20 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import RepositoryPage from '@/components/repository-page';
 import { prisma } from '@/lib/prisma';
+import { getSession } from '@/lib/get-session';
+import type { StoredArchitecture } from '@/lib/architecture/types';
 import type { Analysis } from '@/lib/repository-analysis';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const repository = await prisma.repository.findUnique({ where: { id } });
-  if (!repository) notFound();
+  const session = await getSession();
+  if (!session) redirect('/sign-in');
+  const repository = await prisma.repository.findUnique({ where: { id }, include: { architecture: true } });
+  if (!repository || repository.userId !== session.user.id) notFound();
   return <RepositoryPage key={id} repository={{
+    architecture: repository.architecture ? { rawGraph: repository.architecture.rawGraph, semanticGraph: repository.architecture.semanticGraph, generatedAt: repository.architecture.generatedAt?.toISOString() ?? null } as StoredArchitecture : null,
     id: repository.id, fullName: repository.fullName, defaultBranch: repository.defaultBranch,
     status: repository.status, analysis: repository.analysis as Analysis | null,
     analysisError: repository.analysisError, analyzedAt: repository.analyzedAt?.toISOString() ?? null,

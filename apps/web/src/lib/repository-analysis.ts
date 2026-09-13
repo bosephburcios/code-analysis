@@ -1,3 +1,5 @@
+import { buildArchitectureGraph } from './architecture/build-graph.ts';
+import type { ArchitectureGraph } from './architecture/types.ts';
 export type TreeEntry = { path: string; type: string; sha: string; size?: number; mode?: string };
 export type Analysis = {
   version: 1;
@@ -77,7 +79,7 @@ export function summarize(tree: TreeEntry[], treeSha: string, manifests: Record<
   return { version: 1, treeSha, fileCount: files.length, ignoredFileCount: blobs.length - files.length, languages, tools: [...tools].sort() };
 }
 
-export async function ingestRepository(owner: string, name: string, branch: string, fetcher: typeof fetch = fetch): Promise<Analysis> {
+export async function ingestRepository(owner: string, name: string, branch: string, fetcher: typeof fetch = fetch): Promise<Analysis & { architecture: ArchitectureGraph }> {
   const base = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const signal = AbortSignal.timeout(90_000);
   async function get(path: string) {
@@ -134,5 +136,5 @@ export async function ingestRepository(owner: string, name: string, branch: stri
     scanned, total: candidates.length, complete: scanned === candidates.length,
     ...(reason ? { reason } : {}),
   };
-  return analysis;
+  return { ...analysis, architecture: buildArchitectureGraph(tree.tree.filter(entry => entry.type === 'blob' && entry.mode !== '120000' && !isIgnored(entry.path)).map(entry => entry.path), manifests) };
 }

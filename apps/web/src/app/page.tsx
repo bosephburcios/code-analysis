@@ -1,32 +1,38 @@
+import Link from "next/link";
+
 import { RepositoryImport } from "@/components/repository-import";
+import { Button } from "@/components/ui/button";
+import { getSession } from "@/lib/get-session";
 
-export default function Home() {
+export default async function Home() {
+  const session = await getSession();
+
   return (
-    <main className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-md border">
-              <span className="text-xs font-semibold">C</span>
+    <main className="bg-background">
+      <section className="mx-auto flex min-h-[calc(100svh-6.5rem)] md:min-h-svh max-w-7xl items-center justify-center px-6 py-20">
+        {session ? (
+          <RepositoryImport />
+        ) : (
+          <div className="w-full max-w-md text-center">
+            <h1 className="text-3xl font-semibold tracking-tight">
+              Understand any codebase.
+            </h1>
+            <p className="mx-auto mt-4 max-w-sm text-base leading-7 text-muted-foreground">
+              Sign in to import repositories and keep them tied to your account.
+            </p>
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <Button
+                nativeButton={false}
+                render={<Link href="/sign-up">Create an account</Link>}
+              />
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href="/sign-in">Sign in</Link>}
+              />
             </div>
-
-            <span className="font-medium tracking-tight">
-              CodeMap
-            </span>
           </div>
-
-          <a
-            href="https://github.com"
-            target="_blank"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            GitHub
-          </a>
-        </div>
-      </header>
-
-      <section className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-7xl items-center justify-center px-6 py-20">
-        <RepositoryImport />
+        )}
       </section>
     </main>
   );

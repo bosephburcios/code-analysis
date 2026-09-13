@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -8,25 +9,32 @@ datasource db {
 }
 
 model Repository {
-  id            String           @id @default(cuid())
-  owner         String
-  name          String
-  fullName      String           @unique
-  githubUrl     String
-  description   String?
-  defaultBranch String
-  language      String?
-  stars         Int              @default(0)
-  forks         Int              @default(0)
-  visibility    String           @default("public")
-  status        RepositoryStatus @default(IMPORTED)
-  analysis      Json?
-  analysisError String?
+  id                String             @id @default(cuid())
+  owner             String
+  name              String
+  fullName          String
+  githubUrl         String
+  description       String?
+  defaultBranch     String
+  language          String?
+  stars             Int                @default(0)
+  forks             Int                @default(0)
+  visibility        String             @default("public")
+  status            RepositoryStatus   @default(IMPORTED)
+  architecture      ArchitectureGraph?
+  analysis          Json?
+  analysisError     String?
   analysisStartedAt DateTime?
-  analyzedAt    DateTime?
+  analyzedAt        DateTime?
 
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, fullName])
+  @@index([userId])
 }
 
 enum RepositoryStatus {
@@ -34,4 +42,79 @@ enum RepositoryStatus {
   ANALYZING
   READY
   FAILED
+}
+
+model ArchitectureGraph {
+  id            String     @id @default(cuid())
+  repositoryId  String     @unique
+  rawGraph      Json
+  semanticGraph Json?
+  generatedAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  repository    Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  repositories  Repository[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
 }
