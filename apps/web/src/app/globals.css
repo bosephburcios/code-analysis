@@ -82,6 +82,37 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Architecture canvas (System architecture / Dependencies diagram) */
+  --arch-canvas-bg: #fbfaf6;
+  --arch-canvas-border: #e2ddc9;
+  --arch-header-border: rgb(0 0 0 / 8%);
+  --arch-header-text: #6f6e60;
+  --arch-node-bg: #ffffff;
+  --arch-node-border: rgb(0 0 0 / 8%);
+  --arch-node-text: #201f1a;
+  --arch-node-subtext: #7c7a68;
+  --arch-handle: #9a9784;
+  --arch-boundary-border: rgb(182 154 81 / 55%);
+  --arch-boundary-bg: rgb(182 154 81 / 8%);
+  --arch-boundary-label-bg: #fbf5e4;
+  --arch-boundary-label-border: rgb(182 154 81 / 40%);
+  --arch-boundary-label-text: #8a6a22;
+  --arch-boundary-count-text: #a08a54;
+  --arch-grid: #e5e0d0;
+  --arch-edge-default: #86846f;
+  --arch-edge-data: #4f8a2e;
+  --arch-edge-label-text: #2a2a22;
+  --arch-edge-label-bg: #fdfcf8;
+  --arch-panel-bg: rgb(253 252 248 / 95%);
+  --arch-panel-border: rgb(0 0 0 / 10%);
+  --arch-panel-text: #5a5847;
+  --arch-color-frontend: #2f6fdb;
+  --arch-color-api: #a3760c;
+  --arch-color-service: #a3760c;
+  --arch-color-database: #4f8a2e;
+  --arch-color-external: #7c4fd1;
+  --arch-color-infra: #c46a2a;
 }
 
 .dark {
@@ -116,6 +147,37 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Architecture canvas (System architecture / Dependencies diagram) */
+  --arch-canvas-bg: #121310;
+  --arch-canvas-border: #454338;
+  --arch-header-border: rgb(255 255 255 / 10%);
+  --arch-header-text: #bbbcb3;
+  --arch-node-bg: #191a19;
+  --arch-node-border: rgb(255 255 255 / 10%);
+  --arch-node-text: #f1f0e9;
+  --arch-node-subtext: #aaa99f;
+  --arch-handle: #b5b8b1;
+  --arch-boundary-border: rgb(182 154 81 / 70%);
+  --arch-boundary-bg: rgb(182 154 81 / 10%);
+  --arch-boundary-label-bg: #151613;
+  --arch-boundary-label-border: rgb(182 154 81 / 40%);
+  --arch-boundary-label-text: #e9d6a1;
+  --arch-boundary-count-text: #a49a7c;
+  --arch-grid: #44453b;
+  --arch-edge-default: #c4c5bd;
+  --arch-edge-data: #a6ce7a;
+  --arch-edge-label-text: #e9e8e1;
+  --arch-edge-label-bg: #151613;
+  --arch-panel-bg: rgb(21 22 19 / 95%);
+  --arch-panel-border: rgb(255 255 255 / 15%);
+  --arch-panel-text: #cecec4;
+  --arch-color-frontend: #79b8ff;
+  --arch-color-api: #e8c876;
+  --arch-color-service: #e8c876;
+  --arch-color-database: #a6ce7a;
+  --arch-color-external: #c7a5fa;
+  --arch-color-infra: #eba675;
 }
 
 @layer base {

@@ -29,8 +29,8 @@ function Brand() {
       href="/"
       className="flex items-center gap-2 rounded-md font-medium tracking-tight focus-visible:outline-2 focus-visible:outline-ring"
     >
-      <span className="flex size-7 items-center justify-center rounded-md border bg-background text-xs font-semibold">
-        C
+      <span className="flex size-7 items-center justify-center rounded-md border bg-background">
+        <img src="/logo.svg" alt="" className="size-4 dark:invert" />
       </span>
       CodeMap
     </Link>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTheme } from "next-themes";
 import {
   Background,
   Controls,
@@ -38,12 +39,12 @@ const icons = {
   infra: Settings2,
 };
 const colors = {
-  frontend: "#79b8ff",
-  api: "#e8c876",
-  service: "#e8c876",
-  database: "#a6ce7a",
-  external: "#c7a5fa",
-  infra: "#eba675",
+  frontend: "var(--arch-color-frontend)",
+  api: "var(--arch-color-api)",
+  service: "var(--arch-color-service)",
+  database: "var(--arch-color-database)",
+  external: "var(--arch-color-external)",
+  infra: "var(--arch-color-infra)",
 };
 type ComponentNode = Node<{ component: ArchitectureNode }, "component">;
 type BoundaryNode = Node<{ label: string; count: number }, "boundary">;
@@ -54,13 +55,13 @@ function Component({ data }: NodeProps<ComponentNode>) {
   const confidence = node.metadata?.confidence;
   return (
     <div
-      className="flex h-[118px] w-[176px] flex-col items-center justify-center rounded-lg border border-white/10 bg-[#191a19] px-3 text-center shadow-sm"
+      className="flex h-[118px] w-[176px] flex-col items-center justify-center rounded-lg border border-[var(--arch-node-border)] bg-[var(--arch-node-bg)] px-3 text-center shadow-sm"
       title={`${node.label}\n${node.path ?? ""}`}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!h-1 !w-1 !border-0 !bg-[#b5b8b1]"
+        className="!h-1 !w-1 !border-0 !bg-[var(--arch-handle)]"
       />
       <Icon
         size={30}
@@ -68,10 +69,10 @@ function Component({ data }: NodeProps<ComponentNode>) {
         color={colors[node.type]}
         aria-hidden="true"
       />
-      <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-4 text-[#f1f0e9]">
+      <p className="mt-2 line-clamp-2 text-[12px] font-medium leading-4 text-[var(--arch-node-text)]">
         {node.label}
       </p>
-      <p className="mt-1 w-full truncate font-mono text-[9px] text-[#aaa99f]">
+      <p className="mt-1 w-full truncate font-mono text-[9px] text-[var(--arch-node-subtext)]">
         {typeof confidence === "number"
           ? `${confidence >= 0.8 ? "High" : confidence >= 0.5 ? "Moderate" : "Low"} confidence · ${Math.round(confidence * 100)}%`
           : (node.path ?? node.type)}
@@ -79,17 +80,17 @@ function Component({ data }: NodeProps<ComponentNode>) {
       <Handle
         type="source"
         position={Position.Right}
-        className="!h-1 !w-1 !border-0 !bg-[#b5b8b1]"
+        className="!h-1 !w-1 !border-0 !bg-[var(--arch-handle)]"
       />
     </div>
   );
 }
 function Boundary({ data }: NodeProps<BoundaryNode>) {
   return (
-    <div className="h-full w-full rounded-xl border border-[#b69a51]/70 bg-[#b69a51]/10 shadow-[inset_0_0_0_3px_#b69a5110]">
-      <div className="m-3 inline-flex max-w-[calc(100%-24px)] items-center gap-3 border border-[#b69a51]/40 bg-[#151613] px-2 py-1 text-[10px] uppercase tracking-wider text-[#e9d6a1]">
+    <div className="h-full w-full rounded-xl border border-[var(--arch-boundary-border)] bg-[var(--arch-boundary-bg)] shadow-[inset_0_0_0_3px_var(--arch-boundary-bg)]">
+      <div className="m-3 inline-flex max-w-[calc(100%-24px)] items-center gap-3 border border-[var(--arch-boundary-label-border)] bg-[var(--arch-boundary-label-bg)] px-2 py-1 text-[10px] uppercase tracking-wider text-[var(--arch-boundary-label-text)]">
         <span>{data.label}</span>
-        <span className="text-[#a49a7c]">{data.count}</span>
+        <span className="text-[var(--arch-boundary-count-text)]">{data.count}</span>
       </div>
     </div>
   );
@@ -132,23 +133,30 @@ export function ArchitectureCanvas({
         zIndex: 1,
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: edge.kind === "data" ? "#a6ce7a" : "#c4c5bd",
+          color:
+            edge.kind === "data"
+              ? "var(--arch-edge-data)"
+              : "var(--arch-edge-default)",
           width: 16,
           height: 16,
         },
         style: {
-          stroke: edge.kind === "data" ? "#a6ce7a" : "#c4c5bd",
+          stroke:
+            edge.kind === "data"
+              ? "var(--arch-edge-data)"
+              : "var(--arch-edge-default)",
           strokeWidth: 1.3,
           strokeDasharray: edge.kind === "async" ? "7 6" : undefined,
         },
-        labelStyle: { fontSize: 10, fill: "#e9e8e1" },
-        labelBgStyle: { fill: "#151613", fillOpacity: 0.95 },
+        labelStyle: { fontSize: 10, fill: "var(--arch-edge-label-text)" },
+        labelBgStyle: { fill: "var(--arch-edge-label-bg)", fillOpacity: 0.95 },
         labelBgPadding: [6, 4],
         labelBgBorderRadius: 3,
         pathOptions: { borderRadius: 18, offset: 35 },
       }));
     return { nodes: [...parents, ...children], edges };
   }, [graphNodes, graphEdges]);
+  const { resolvedTheme } = useTheme();
 
   if (!graphNodes.length)
     return (
@@ -158,8 +166,8 @@ export function ArchitectureCanvas({
       </div>
     );
   return (
-    <div className="overflow-hidden rounded-xl border border-[#454338] bg-[#121310]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-3 text-[11px] text-[#bbbcb3]">
+    <div className="overflow-hidden rounded-xl border border-[var(--arch-canvas-border)] bg-[var(--arch-canvas-bg)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--arch-header-border)] px-4 py-3 text-[11px] text-[var(--arch-header-text)]">
         <span className="font-mono uppercase tracking-widest">
           System architecture
         </span>
@@ -175,7 +183,7 @@ export function ArchitectureCanvas({
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
-          colorMode="dark"
+          colorMode={resolvedTheme === "light" ? "light" : "dark"}
           fitView
           fitViewOptions={{ padding: 0.16, maxZoom: 1 }}
           minZoom={0.02}
@@ -184,15 +192,16 @@ export function ArchitectureCanvas({
           nodesConnectable={false}
           elementsSelectable={false}
         >
-          <Background color="#44453b" gap={32} size={0.6} />
+          <Background color="var(--arch-grid)" gap={32} size={0.6} />
           <Controls showInteractive={false} />
           <Panel position="top-right">
-            <div className="space-y-2 rounded-md border border-white/15 bg-[#151613]/95 px-3 py-2 text-[10px] text-[#cecec4]">
+            <div className="space-y-2 rounded-md border border-[var(--arch-panel-border)] bg-[var(--arch-panel-bg)] px-3 py-2 text-[10px] text-[var(--arch-panel-text)]">
               <div className="flex items-center gap-2">
                 <ArrowRight size={18} /> Request / dependency
               </div>
               <div className="flex items-center gap-2">
-                <ArrowRight size={18} className="text-[#a6ce7a]" /> Data access
+                <ArrowRight size={18} className="text-[var(--arch-edge-data)]" />{" "}
+                Data access
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-[18px] border-t border-dashed" />{" "}

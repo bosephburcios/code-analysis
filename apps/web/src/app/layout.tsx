@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Code Analysis",
+  title: "CodeMap",
   description: "A readme export for your projects",
 };
 
