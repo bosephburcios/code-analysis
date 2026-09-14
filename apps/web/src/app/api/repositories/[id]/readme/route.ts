@@ -171,7 +171,7 @@ export async function POST(
       return respond({ error: error.message }, error.status);
     const message = error instanceof Error ? error.message : "";
     const expected =
-      /^(Cannot reach Ollama|Ollama model|Local model|Readme prose validation)/.test(
+      /^(Cannot reach Ollama|Ollama model|Local model|Readme prose validation|Missing AI|Unsupported AI_PROVIDER|Hosted model|Cannot reach the hosted)/.test(
         message,
       );
     return respond(

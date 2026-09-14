@@ -4,6 +4,16 @@ import { generateReadmeProse, ollamaReadmeProvider } from '../src/lib/ai/generat
 import { validateReadmeProse } from '../src/lib/readme/validate-readme-prose.ts';
 import { assembleGeneratedReadme } from '../src/lib/readme/assemble-readme.ts';
 
+function withEnv(overrides, run) {
+  const original = {};
+  for (const key of Object.keys(overrides)) original[key] = process.env[key];
+  Object.assign(process.env, overrides);
+  try { return run(); }
+  finally { for (const key of Object.keys(overrides)) {
+    if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key];
+  } }
+}
+
 const context = {
   title: 'code-analysis',
   badges: [],
@@ -70,4 +80,19 @@ test('classifies Ollama failure modes with the same message strings as architect
   await assert.rejects(generateReadmeProse(context, ollamaReadmeProvider(async () => { throw Object.assign(new Error(), { name: 'TimeoutError' }); })), /timed out/);
   await assert.rejects(generateReadmeProse(context, ollamaReadmeProvider(async () => new Response('', { status: 404 }))), /model not found/);
   await assert.rejects(generateReadmeProse(context, ollamaReadmeProvider(async () => Response.json({ done: true, message: { content: 'not json' } }))), /invalid JSON/);
+});
+
+test('with no explicit provider, generateReadmeProse dispatches through getAIProvider (AI_PROVIDER) just like architecture generation', async () => {
+  await withEnv({ AI_PROVIDER: undefined }, async () => {
+    delete process.env.AI_PROVIDER;
+    await assert.rejects(generateReadmeProse(context), /Missing AI provider configuration/);
+  });
+  await withEnv({ AI_PROVIDER: 'ollama' }, async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => Response.json({ done: true, done_reason: 'stop', message: { content: JSON.stringify(prose()) } });
+    try {
+      const result = await generateReadmeProse(context);
+      assert.equal(result.tagline, 'A repository analysis tool.');
+    } finally { globalThis.fetch = originalFetch; }
+  });
 });

@@ -72,7 +72,7 @@ export async function POST(
     console.error("Semantic generation failed", error);
     const message = error instanceof Error ? error.message : "";
     const expected =
-      /^(Cannot reach Ollama|Ollama model|Local model|Semantic evidence validation|This graph|No detected components)/.test(
+      /^(Cannot reach Ollama|Ollama model|Local model|Semantic evidence validation|This graph|No detected components|Missing AI|Unsupported AI_PROVIDER|Hosted model|Cannot reach the hosted)/.test(
         message,
       );
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SiteShell } from "@/components/site-header";
@@ -42,6 +43,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </SiteShell>
           </TooltipProvider>
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
