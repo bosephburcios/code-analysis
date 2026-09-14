@@ -1,10 +1,14 @@
 "use client";
 
+import { architectureEvidence } from "@/lib/architecture/types";
+
 import { useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { reconcileSemanticRoles } from "@/lib/architecture/semantic-roles";
 import { ArchitectureCanvas } from "./architecture-canvas";
+import { DependenciesView } from "./dependencies-view";
+import { SemanticInspector } from "./semantic-inspector";
 import type {
   ArchitectureGraph,
   ArchitectureNode,
@@ -27,15 +31,30 @@ const types: Record<
 export function ArchitectureViews({
   repositoryId,
   architecture,
+  onGenerated,
+  onRefresh,
+  refreshing,
 }: {
   repositoryId: string;
   architecture: StoredArchitecture;
+  onRefresh: () => void;
+  refreshing: boolean;
+  onGenerated: (graph: SemanticArchitecture, generatedAt: string) => void;
 }) {
   const [tab, setTab] = useState<"architecture" | "dependencies">(
     "architecture",
   );
-  const [semantic, setSemantic] = useState(architecture.semanticGraph);
+  const semantic = useMemo(() => architecture.semanticGraph
+    ? reconcileSemanticRoles(architecture.semanticGraph, architectureEvidence(architecture.rawGraph).nodes)
+    : null, [architecture]);
   const [busy, setBusy] = useState(false);
+  const [selection, setSelection] = useState<{ id: string; graph: SemanticArchitecture } | null>(null);
+  const selected = semantic && selection?.graph === semantic ? semantic.nodes.find(node => node.id === selection.id) ?? null : null;
+  function selectComponent(id: string) { if (semantic) setSelection({ id, graph: semantic }); }
+  const highlightedIds = useMemo(() => selected && semantic ? new Set([
+    selected.id,
+    ...semantic.edges.filter(edge => edge.source === selected.id || edge.target === selected.id).flatMap(edge => [edge.source, edge.target]),
+  ]) : null, [selected, semantic]);
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
@@ -48,10 +67,11 @@ export function ArchitectureViews({
               label: node.label,
               type: types[node.type],
               metadata: {
-                confidence: node.confidence,
+                technologies: node.technologies,
                 description: node.description,
                 evidence: node.files,
                 semanticType: node.type,
+                ...(node.role ? { role: node.role } : {}),
               },
             })),
             edges: semantic.edges.map((edge) => ({
@@ -79,12 +99,13 @@ export function ArchitectureViews({
     try {
       const response = await fetch(
         `/api/repositories/${repositoryId}/architecture/semantic`,
-        { method: "POST", signal: AbortSignal.timeout(330_000) },
+        { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force: Boolean(semantic) }), signal: AbortSignal.timeout(330_000) },
       );
       const data = await response.json();
       if (!response.ok)
         throw new Error(data.error ?? "Could not generate architecture.");
-      setSemantic(data.semanticGraph);
+      onGenerated(data.semanticGraph, data.generatedAt);
     } catch (error) {
       setError(
         error instanceof Error && error.name !== "TimeoutError"
@@ -99,6 +120,19 @@ export function ArchitectureViews({
 
   return (
     <div className="space-y-4">
+      {!architecture.rawGraph.responsibilities && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/30 p-3 text-sm">
+          <p>This graph uses the older technology-only scan. Update source evidence to identify responsibilities.</p>
+          <Button size="sm" variant="outline" disabled={refreshing} onClick={onRefresh}>
+            {refreshing ? "Scanning source…" : "Update source evidence"}
+          </Button>
+        </div>
+      )}
+      {architecture.rawGraph.responsibilities && !architecture.rawGraph.responsibilities.coverage.complete && (
+        <p role="status" className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-muted-foreground">
+          Partial source evidence: {architecture.rawGraph.responsibilities.coverage.scanned} of {architecture.rawGraph.responsibilities.coverage.total} eligible files scanned. {architecture.rawGraph.responsibilities.coverage.reason} Connections may be missing.
+        </p>
+      )}
       <div
         role="tablist"
         aria-label="Graph views"
@@ -134,15 +168,9 @@ export function ArchitectureViews({
           </Button>
         ))}
       </div>
-      {(tab === "dependencies" || semantic) && (
+      {tab === "architecture" && semantic && (
         <p className="text-xs text-muted-foreground">
-          {tab === "dependencies"
-            ? architecture.rawGraph.nodes.length
-            : semantic!.nodes.length}{" "}
-          components ·{" "}
-          {tab === "dependencies"
-            ? architecture.rawGraph.edges.length
-            : semantic!.edges.length}{" "}
+          {semantic.nodes.length} components · {semantic.edges.length}{" "}
           connections
         </p>
       )}
@@ -153,7 +181,7 @@ export function ArchitectureViews({
         hidden={tab !== "dependencies"}
       >
         {tab === "dependencies" && (
-          <ArchitectureCanvas {...architecture.rawGraph} />
+          <DependenciesView architecture={architecture.rawGraph} />
         )}
       </div>
       <div
@@ -172,7 +200,7 @@ export function ArchitectureViews({
               score.
             </p>
             <Button
-              disabled={busy || !architecture.rawGraph.nodes.length}
+              disabled={busy || refreshing || !architecture.rawGraph.responsibilities || !architectureEvidence(architecture.rawGraph).nodes.length}
               onClick={() => void generate()}
             >
               {busy && <Loader2 className="size-4 animate-spin" />}
@@ -180,8 +208,9 @@ export function ArchitectureViews({
             </Button>
             {busy && (
               <p role="status" className="mt-3 text-xs text-muted-foreground">
-                Grouping evidence and validating references. You can still
-                browse Dependencies.
+                Running a local AI model to group components and explain each
+                one — this usually takes 30–90 seconds depending on repo
+                size. You can still browse Dependencies while you wait.
               </p>
             )}
           </div>
@@ -194,79 +223,28 @@ export function ArchitectureViews({
             {error}
           </p>
         )}
-        {graph && tab === "architecture" && <ArchitectureCanvas {...graph} />}
+        {graph && tab === "architecture" && <ArchitectureCanvas {...graph} inspectable onNodeClick={selectComponent} selectedId={selected?.id} highlightedIds={highlightedIds}
+          subtitle="Select a component to inspect · hover a connection to see its flow" />}
+        {semantic && tab === "architecture" && <SemanticInspector repositoryId={repositoryId} node={selected} semantic={semantic} rawGraph={architecture.rawGraph}
+          onSelect={selectComponent} onClose={() => setSelection(null)} />}
         {semantic && (
-          <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">
-              Confidence is the model’s assessment of its grouping and label,
-              not proof of runtime behavior. Relationships inherit the raw
-              graph’s uncertainty.
-            </p>
-            {semantic.nodes.map((node) => (
-              <details key={node.id} className="rounded-lg border px-4 py-3">
-                <summary className="cursor-pointer text-sm font-medium focus-visible:outline-2">
-                  <span className="mr-3">{node.label}</span>
-                  <Badge variant="outline">
-                    {node.confidence >= 0.8
-                      ? "High"
-                      : node.confidence >= 0.5
-                        ? "Moderate"
-                        : "Low"}{" "}
-                    confidence · {Math.round(node.confidence * 100)}%
-                  </Badge>
-                </summary>
-                <div className="typeset typeset-docs mt-3 text-muted-foreground">
-                  <p>{node.description}</p>
-                </div>
-                <h4 className="mb-2 mt-4 text-xs font-semibold">Based on</h4>
-                <ul className="space-y-1 break-all font-mono text-xs text-muted-foreground">
-                  {node.files.map((file) => (
-                    <li key={file}>{file}</li>
-                  ))}
-                </ul>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Source components:{" "}
-                  {node.sourceNodeIds
-                    .map(
-                      (id) =>
-                        architecture.rawGraph.nodes.find(
-                          (source) => source.id === id,
-                        )?.label ?? id,
-                    )
-                    .join(", ")}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {node.technologies.map((technology) => (
-                    <Badge key={technology} variant="secondary">
-                      {technology}
-                    </Badge>
-                  ))}
-                </div>
-                {semantic.edges
-                  .filter(
-                    (edge) =>
-                      edge.source === node.id || edge.target === node.id,
-                  )
-                  .map((edge) => (
-                    <p
-                      key={edge.id}
-                      className="mt-2 text-xs text-muted-foreground"
-                    >
-                      {edge.label}:{" "}
-                      {edge.sourceEdgeIds
-                        .map((id) => {
-                          const source = architecture.rawGraph.edges.find(
-                            (item) => item.id === id,
-                          );
-                          return source
-                            ? `${source.label ?? source.kind} (${source.source} → ${source.target})`
-                            : id;
-                        })
-                        .join("; ")}
-                    </p>
-                  ))}
-              </details>
-            ))}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <a href="#components" className="text-sm text-muted-foreground underline underline-offset-4">
+                View descriptions, confidence, and evidence in the component index
+              </a>
+              <Button variant="outline" size="sm" disabled={busy || refreshing || !architecture.rawGraph.responsibilities} onClick={() => void generate()}>
+                {busy && <Loader2 className="size-4 animate-spin" />}
+                {busy ? "Regenerating…" : "Regenerate architecture"}
+              </Button>
+            </div>
+            {busy && (
+              <p role="status" className="text-xs text-muted-foreground">
+                Running a local AI model to re-group components and explain
+                each one — this usually takes 30–90 seconds depending on repo
+                size. The current graph stays visible until it&apos;s done.
+              </p>
+            )}
           </div>
         )}
       </div>

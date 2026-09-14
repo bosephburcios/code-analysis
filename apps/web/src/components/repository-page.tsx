@@ -6,6 +6,7 @@ import { ArrowLeft, GitBranch, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import RepositoryOverview from "@/components/repository-overview";
+import { ComponentIndex } from "@/components/architecture/component-index";
 import { ArchitectureViews } from "@/components/architecture/architecture-views";
 import type { StoredArchitecture } from "@/lib/architecture/types";
 import type { Analysis } from "@/lib/repository-analysis";
@@ -101,7 +102,7 @@ export default function RepositoryPage({
   const analysis = current.analysis;
   const error = requestError ?? current.analysisError;
   return (
-    <main className="mx-auto max-w-[1500px] px-4 py-8 sm:px-8">
+    <main className="workspace-enter mx-auto max-w-[1500px] px-4 py-8 sm:px-8">
       <Link
         href="/"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -190,7 +191,7 @@ export default function RepositoryPage({
             </a>
           </nav>
         </aside>
-        <div className="min-w-0 space-y-10">
+        <div className="workspace-sections min-w-0 space-y-10">
           <section
             id="architecture"
             className="scroll-mt-8"
@@ -217,6 +218,12 @@ export default function RepositoryPage({
             </div>
             {current.architecture ? (
               <ArchitectureViews
+                refreshing={busy}
+                onRefresh={() => void handleSync()}
+                onGenerated={(semanticGraph, generatedAt) => setCurrent(previous => {
+                  if (!previous.architecture || previous.architecture.rawGraph !== current.architecture?.rawGraph) return previous;
+                  return { ...previous, architecture: { ...previous.architecture, semanticGraph, generatedAt } };
+                })}
                 key={current.architecture.generatedAt ?? "raw"}
                 repositoryId={current.id}
                 architecture={current.architecture}
@@ -239,35 +246,7 @@ export default function RepositoryPage({
           </section>
           {current.architecture && (
             <section id="components" className="scroll-mt-8">
-              <h2 className="mb-4 text-lg font-semibold">Component index</h2>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Evidence used to infer each component. Missing manifests can
-                limit detection.
-              </p>
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b bg-muted/40 text-xs text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Component</th>
-                      <th className="px-4 py-3 font-medium">Type</th>
-                      <th className="px-4 py-3 font-medium">Evidence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {current.architecture.rawGraph.nodes.map((node) => (
-                      <tr key={node.id} className="border-b last:border-0">
-                        <td className="px-4 py-3 font-medium">{node.label}</td>
-                        <td className="px-4 py-3">
-                          <Badge variant="secondary">{node.type}</Badge>
-                        </td>
-                        <td className="break-all px-4 py-3 font-mono text-xs text-muted-foreground">
-                          {String(node.metadata?.evidence ?? node.path ?? "—")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ComponentIndex key={current.architecture.generatedAt ?? current.analyzedAt ?? "raw"} architecture={current.architecture} repositoryId={current.id} />
             </section>
           )}
         </div>

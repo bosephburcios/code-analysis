@@ -6,8 +6,11 @@ export function detectApi({ files, manifests }: DetectionContext): ArchitectureN
     if (route) {
       const root = route[1].replace(/\/$/, '') || '.';
       const existing = found.get(root);
-      if (existing) existing.metadata!.routeCount = Number(existing.metadata!.routeCount ?? 1) + 1;
-      else found.set(root, { ...node('api', 'API Routes', root, file), metadata: { evidence: file, routeCount: 1, inferred: true } });
+      if (existing) {
+        existing.metadata!.routeCount = Number(existing.metadata!.routeCount ?? 1) + 1;
+        const previous = existing.metadata!.evidence;
+        existing.metadata!.evidence = [...(Array.isArray(previous) ? previous : typeof previous === 'string' ? [previous] : []), file];
+      } else found.set(root, { ...node('api', 'API Routes', root, file), metadata: { evidence: [file], routeCount: 1, inferred: true } });
     }
     const content = manifests[file] ?? '';
     if (/(?:requirements[^/]*\.txt|pyproject\.toml|Pipfile)$/.test(file)) {

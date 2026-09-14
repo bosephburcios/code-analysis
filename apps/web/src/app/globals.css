@@ -113,10 +113,14 @@
   --arch-color-database: #4f8a2e;
   --arch-color-external: #7c4fd1;
   --arch-color-infra: #c46a2a;
+  --arch-node-selected-ring: #1d4ed8;
+  --dot-grid-color: rgb(0 0 0 / 14%);
+  --dot-grid-vignette-1: rgba(0, 0, 0, 0.035);
+  --dot-grid-vignette-2: rgba(0, 0, 0, 0.015);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: #0a0a0a;
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
@@ -178,6 +182,94 @@
   --arch-color-database: #a6ce7a;
   --arch-color-external: #c7a5fa;
   --arch-color-infra: #eba675;
+  --arch-node-selected-ring: #3b82f6;
+  --dot-grid-color: #242424;
+  --dot-grid-vignette-1: rgb(255 255 255 / 1.5%);
+  --dot-grid-vignette-2: rgb(255 255 255 / 0.6%);
+}
+
+.dot-grid {
+  background-image:
+    radial-gradient(var(--dot-grid-color) 1px, transparent 1px),
+    radial-gradient(
+      circle at center,
+      var(--dot-grid-vignette-1) 0%,
+      var(--dot-grid-vignette-2) 35%,
+      transparent 70%
+    );
+  background-size: 28px 28px, 100% 100%;
+  background-repeat: repeat, no-repeat;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes import-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes import-check-pop {
+  0% { transform: scale(0.75); opacity: 0; }
+  70% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes import-check-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+.import-success {
+  animation: import-reveal 360ms ease-out both;
+}
+
+.import-success-icon {
+  animation: import-check-pop 440ms 80ms ease-out both;
+}
+
+.import-success-check {
+  stroke-dasharray: 1;
+  animation: import-check-draw 320ms 260ms ease-out both;
+}
+
+.import-success-details {
+  animation: import-reveal 380ms 180ms ease-out both;
+}
+
+@keyframes workspace-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.workspace-enter {
+  animation: workspace-fade-in 300ms ease-out backwards;
+}
+
+.workspace-enter > header,
+.workspace-sections > section {
+  animation: import-reveal 420ms ease-out backwards;
+}
+
+.workspace-sections > section:nth-child(1) { animation-delay: 80ms; }
+.workspace-sections > section:nth-child(2) { animation-delay: 150ms; }
+.workspace-sections > section:nth-child(3) { animation-delay: 220ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .import-success,
+  .import-success-icon,
+  .import-success-check,
+  .import-success-details,
+  .workspace-enter,
+  .workspace-enter > header,
+  .workspace-sections > section {
+    animation: none;
+  }
 }
 
 @layer base {

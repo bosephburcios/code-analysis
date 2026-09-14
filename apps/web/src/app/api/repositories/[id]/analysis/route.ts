@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ingestRepository } from '@/lib/repository-analysis';
 import { getSession } from '@/lib/get-session';
+import { analysisLimiter, rateLimitResponse } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -51,6 +51,13 @@ export async function POST(request: Request, { params }: Context) {
   const force = await request.json().then((body) => Boolean(body?.force)).catch(() => false);
 
   if (!force && repository.status === 'READY' && repository.analysis && repository.architecture) return NextResponse.json(repository);
+
+  // Only rate-limit requests that actually trigger (or attempt to claim) real
+  // analysis work — the cache-hit path above stays free so normal page loads
+  // / navigation never get throttled.
+  const limit = await analysisLimiter.limit(session.user.id);
+  if (!limit.success) return rateLimitResponse(limit);
+
   const startedAt = new Date();
   const claimed = await prisma.repository.updateMany({
     where: { id, OR: [
@@ -73,10 +80,15 @@ export async function POST(request: Request, { params }: Context) {
         data: { ...metadata, analysis, status: 'READY', analyzedAt: new Date(), analysisError: null },
       });
       if (!saved.count) return;
+      // A previously-generated semantic graph is intentionally kept across
+      // re-analysis (e.g. "Sync latest") rather than wiped every time — the
+      // AI pass is slow/local-model-bound, and reconcileSemanticRoles /
+      // reconcile-semantic-edges already tolerate drift against updated raw
+      // evidence. Users can still force a fresh one via "Regenerate architecture".
       await tx.architectureGraph.upsert({
         where: { repositoryId: id },
         create: { repositoryId: id, rawGraph: architecture },
-        update: { rawGraph: architecture, semanticGraph: Prisma.DbNull, generatedAt: null },
+        update: { rawGraph: architecture },
       });
     });
   } catch (error) {

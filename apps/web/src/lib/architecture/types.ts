@@ -5,8 +5,13 @@ export type ArchitectureNode = {
   path?: string;
   metadata?: Record<string, string | number | boolean | string[]>;
 };
-export type ArchitectureEdge = { id: string; source: string; target: string; label?: string; kind: 'sync' | 'async' | 'data' };
-export type ArchitectureGraph = { nodes: ArchitectureNode[]; edges: ArchitectureEdge[] };
+export type ArchitectureEdge = { id: string; source: string; target: string; label?: string; kind: 'sync' | 'async' | 'data'; evidence?: string[]; names?: string[] };
+export type SourceCoverage = { scanned: number; total: number; complete: boolean; reason?: string };
+export type PackageUsage = { name: string; version: string; kind: 'dependency' | 'devDependency'; manifestPath: string; importedBy: string[] };
+export type ResponsibilityGraph = { version: 1; nodes: ArchitectureNode[]; edges: ArchitectureEdge[]; coverage: SourceCoverage; packages?: PackageUsage[] };
+export type ArchitectureGraph = { nodes: ArchitectureNode[]; edges: ArchitectureEdge[]; responsibilities?: ResponsibilityGraph };
+export function architectureEvidence(graph: ArchitectureGraph) { return graph.responsibilities ?? graph; }
+export function sourceNodeId(path: string) { return `source:${path}`; }
 export type DetectionContext = { files: string[]; manifests: Record<string, string> };
 export function node(type: ArchitectureNode['type'], label: string, path: string, evidence: string): ArchitectureNode {
   return { id: `${type}:${path}:${label}`, type, label, path, metadata: { evidence, inferred: true } };

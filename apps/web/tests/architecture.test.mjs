@@ -33,3 +33,17 @@ test('detects external SDKs, Python services and infra without connecting unrela
 test('ignores fixture apps and handles repositories with no recognized boundaries', () => {
   assert.deepEqual(buildArchitectureGraph(['examples/demo/next.config.ts', 'test/fixture/schema.prisma', 'README.md']), { nodes: [], edges: [] });
 });
+
+test('retains API responsibilities and UI entry points without leaking another app into evidence', () => {
+  const files = ['apps/web/next.config.ts', 'apps/web/src/app/page.tsx',
+    'apps/web/src/components/repository-import.tsx', 'apps/web/src/components/ui/button.tsx',
+    'apps/web/src/app/api/auth/[...all]/route.ts', 'apps/web/src/app/api/repositories/import/route.ts',
+    'apps/web/src/app/api/repositories/[id]/analysis/route.ts', 'apps/other/src/app/page.tsx'];
+  const graph = buildArchitectureGraph(files);
+  const api = graph.nodes.find(node => node.type === 'api');
+  assert.equal(api.metadata.routeCount, 3);
+  assert.equal(api.metadata.evidence.length, 3);
+  assert.ok(api.metadata.evidence.includes('apps/web/src/app/api/repositories/import/route.ts'));
+  const ui = graph.nodes.find(node => node.type === 'frontend');
+  assert.deepEqual(ui.metadata.evidence, ['apps/web/next.config.ts', 'apps/web/src/app/page.tsx', 'apps/web/src/components/repository-import.tsx']);
+});

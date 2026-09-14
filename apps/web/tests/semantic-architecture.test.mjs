@@ -1,3 +1,4 @@
+import { groupedResponse } from './helpers/grouped-response.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildArchitectureContext } from '../src/lib/architecture/build-ai-context.ts';
@@ -50,7 +51,7 @@ test('validates results from any provider and never trusts provider output', asy
 test('Ollama uses schema constrained output and separates instructions from evidence', async () => {
   const provider = ollamaProvider(async (_url, init) => {
     const body = JSON.parse(init.body);
-    assert.equal(body.format.properties.nodes.items.properties.confidence.maximum, 1);
+    assert.equal(body.format.properties.groups.properties.frontend.properties.components.properties["frontend-0"].properties.confidence.maximum, 1);
     assert.equal(body.messages[0].role, 'system');
     assert.match(body.messages[0].content, /untrusted data/);
     assert.equal(body.stream, false);
@@ -58,7 +59,7 @@ test('Ollama uses schema constrained output and separates instructions from evid
     aliased.nodes[0].sourceNodeIds = ['c0', 'c1'];
     aliased.nodes[1].sourceNodeIds = ['c2'];
     aliased.edges[0].sourceEdgeIds = ['r1'];
-    return Response.json({ done: true, done_reason: 'stop', message: { content: JSON.stringify(aliased) } });
+    return Response.json({ done: true, done_reason: 'stop', message: { content: JSON.stringify(groupedResponse(aliased, body.format)) } });
   });
   const validated = await generateSemanticArchitecture(context, provider);
   assert.equal(validated.nodes.length, 2);
@@ -70,14 +71,92 @@ test('rejects oversized context rather than silently omitting components', () =>
   assert.throws(() => buildArchitectureContext({ nodes: Array.from({ length: 501 }, (_, i) => ({ id: String(i), type: 'infra', label: 'Docker' })), edges: [] }), /context limit/);
 });
 
-test('role bundles retain every raw app ID and evidence file', async () => {
+test('grouped output retains every raw app ID and evidence file', async () => {
   const evidence = buildArchitectureContext({ nodes: Array.from({ length: 94 }, (_, i) => ({ id: `app-${i}`, type: 'frontend', label: 'Next.js App', metadata: { evidence: `apps/${i}/next.config.ts` } })), edges: [] });
   const result = await generateSemanticArchitecture(evidence, ollamaProvider(async (_url, init) => {
     const prompt = JSON.parse(init.body).messages[1].content;
-    assert.match(prompt, /"sourceCount":94/);
-    const graph = { nodes: [{ id: 'frontends', label: 'Next.js Applications', type: 'frontend', description: 'A collection of Next.js application configurations.', confidence: 0.7, sourceNodeIds: ['c0'], files: [], technologies: [] }], edges: [] };
-    return Response.json({ done: true, done_reason: 'stop', message: { content: JSON.stringify(graph) } });
+    assert.match(prompt, /app-93|apps\/93/);
+    const graph = { nodes: [{ id: 'frontends', label: 'Next.js Applications', type: 'frontend', description: 'A collection of Next.js application configurations.', confidence: 0.7, sourceNodeIds: Array.from({ length: 94 }, (_, i) => `c${i}`), files: [], technologies: [] }], edges: [] };
+    return Response.json({ done: true, done_reason: 'stop', message: { content: JSON.stringify(groupedResponse(graph, JSON.parse(init.body).format)) } });
   }));
   assert.equal(result.nodes[0].sourceNodeIds.length, 94);
   assert.equal(result.nodes[0].files.length, 94);
+});
+
+test('generation derives relationship kinds from evidence instead of model guesses', async () => {
+  for (const kind of ['sync', 'async', 'data']) {
+    for (const proposed of ['request', 'dependency', 'async', 'data']) {
+      const evidence = buildArchitectureContext({ ...raw, edges: [
+        raw.edges[0], { ...raw.edges[1], kind },
+      ] });
+      const input = graph();
+      input.edges[0].type = proposed;
+      const result = await generateSemanticArchitecture(evidence, async () => input);
+      const expected = kind === 'sync' ? (proposed === 'request' ? 'request' : 'dependency') : kind;
+      assert.equal(result.edges[0].type, expected);
+      assert.deepEqual(result.edges[0].sourceEdgeIds, ['api-db']);
+      assert.deepEqual([result.edges[0].source, result.edges[0].target], ['app', 'persistence']);
+      if (expected !== proposed) assert.match(result.edges[0].label, /inferred/);
+    }
+  }
+});
+
+test('generation splits mixed kinds without losing citations or colliding with existing IDs', async () => {
+  const evidence = buildArchitectureContext({ ...raw, edges: [
+    ...raw.edges,
+    { id: 'api-db-async', source: 'api', target: 'db', kind: 'async' },
+    { id: 'api-db-sync', source: 'api', target: 'db', kind: 'sync' },
+  ] });
+  const input = graph();
+  input.edges[0].sourceEdgeIds.push('api-db-async');
+  input.edges.push({ id: 'queries-async-1', source: 'app', target: 'persistence',
+    label: 'depends on', type: 'dependency', sourceEdgeIds: ['api-db-sync'] });
+  const result = await generateSemanticArchitecture(evidence, async () => input);
+  assert.deepEqual(result.edges.map(edge => edge.type), ['data', 'async', 'dependency']);
+  assert.equal(new Set(result.edges.map(edge => edge.id)).size, 3);
+  assert.deepEqual(result.edges.flatMap(edge => edge.sourceEdgeIds).sort(), ['api-db', 'api-db-async', 'api-db-sync']);
+  assert.deepEqual(validateSemanticArchitecture(result, evidence), result);
+});
+
+for (const [name, change] of [
+  ['invented edge', g => g.edges[0].sourceEdgeIds.push('fake')],
+  ['reversed edge', g => { g.edges[0].source = 'persistence'; g.edges[0].target = 'app'; }],
+  ['duplicate citation', g => g.edges[0].sourceEdgeIds.push('api-db')],
+  ['duplicate edge ID', g => g.edges.push({ ...g.edges[0] })],
+  ['missing edge', g => g.edges = []],
+  ['invented file', g => g.nodes[0].files.push('fake.ts')],
+  ['missing component', g => g.nodes[0].sourceNodeIds.pop()],
+]) test(`reconciliation still rejects ${name}`, async () => {
+  const input = graph();
+  input.edges[0].type = 'request';
+  change(input);
+  await assert.rejects(generateSemanticArchitecture(context, async () => input));
+});
+
+test('Ollama aliased output with the wrong relationship type passes after correction', async () => {
+  const provider = ollamaProvider(async (_url, init) => {
+    const input = graph();
+    input.nodes[0].sourceNodeIds = ['c0', 'c1'];
+    input.nodes[1].sourceNodeIds = ['c2'];
+    input.edges[0].sourceEdgeIds = ['r1'];
+    input.edges[0].type = 'request';
+    return Response.json({ done: true, done_reason: 'stop', message: { content: JSON.stringify(groupedResponse(input, JSON.parse(init.body).format)) } });
+  });
+  const result = await generateSemanticArchitecture(context, provider);
+  assert.equal(result.edges[0].type, 'data');
+  assert.deepEqual(result.edges[0].sourceEdgeIds, ['api-db']);
+});
+
+test('corrects an API mislabeled frontend and keeps it in a separate backend role', async () => {
+  const input = graph();
+  input.nodes[0].sourceNodeIds = ['web'];
+  input.nodes[0].type = 'frontend';
+  input.nodes.push({ id: 'server', label: 'Repository API', type: 'frontend', description: 'API routes.', confidence: 0.8, sourceNodeIds: ['api'], files: [], technologies: [] });
+  input.edges[0].source = 'server';
+  input.edges.push({ id: 'requests', source: 'app', target: 'server', label: 'requests', type: 'request', sourceEdgeIds: ['web-api'] });
+  assert.throws(() => validateSemanticArchitecture(input, context), /source roles/);
+  const result = await generateSemanticArchitecture(context, async () => input);
+  assert.equal(result.nodes.find(node => node.id === 'app').type, 'frontend');
+  assert.equal(result.nodes.find(node => node.id === 'server').type, 'backend');
+  assert.equal(result.nodes.find(node => node.id === 'persistence').type, 'database');
 });

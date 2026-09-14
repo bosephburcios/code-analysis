@@ -1,5 +1,6 @@
 import { buildArchitectureGraph } from './architecture/build-graph.ts';
 import type { ArchitectureGraph } from './architecture/types.ts';
+import { buildResponsibilityGraph, isArchitectureSource } from './architecture/build-responsibilities.ts';
 export type TreeEntry = { path: string; type: string; sha: string; size?: number; mode?: string };
 export type Analysis = {
   version: 1;
@@ -35,7 +36,7 @@ export function languageFor(path: string): string {
   return extensions[path.split('.').at(-1)!.toLowerCase()] ?? 'Other';
 }
 export function isManifest(path: string): boolean {
-  return /(?:^|\/)(?:package\.json|schema\.prisma|requirements[^/]*\.txt|pyproject\.toml|Pipfile|docker-compose[^/]*\.ya?ml|compose\.ya?ml)$/.test(path);
+  return /(?:^|\/)(?:package\.json|tsconfig(?:\.[^/]+)?\.json|schema\.prisma|requirements[^/]*\.txt|pyproject\.toml|Pipfile|docker-compose[^/]*\.ya?ml|compose\.ya?ml)$/.test(path);
 }
 export function summarize(tree: TreeEntry[], treeSha: string, manifests: Record<string, string>): Analysis {
   const blobs = tree.filter(entry => entry.type === 'blob' && entry.mode !== '120000');
@@ -136,5 +137,41 @@ export async function ingestRepository(owner: string, name: string, branch: stri
     scanned, total: candidates.length, complete: scanned === candidates.length,
     ...(reason ? { reason } : {}),
   };
-  return { ...analysis, architecture: buildArchitectureGraph(tree.tree.filter(entry => entry.type === 'blob' && entry.mode !== '120000' && !isIgnored(entry.path)).map(entry => entry.path), manifests) };
+  const retained = tree.tree.filter(entry => entry.type === 'blob' && entry.mode !== '120000' && !isIgnored(entry.path));
+  const sourceCandidates = retained.filter(entry => isArchitectureSource(entry.path)).sort((a, b) => {
+    const priority = (path: string) => /\/api\//.test(path) ? 0 : /\/(?:lib|services|server)\//.test(path) ? 1 : 2;
+    return priority(a.path) - priority(b.path) || a.path.localeCompare(b.path);
+  });
+  const sources: Record<string, string> = {};
+  let sourceReason: string | undefined;
+  let sourceBytes = 0;
+  // Source snapshots share the tree's immutable blob SHAs. Never fetch .env or execute code.
+  const selected = sourceCandidates.slice(0, 100);
+  if (selected.length < sourceCandidates.length) sourceReason = 'Source scan limited to 100 files.';
+  for (let offset = 0; offset < selected.length; offset += 5) {
+    const results = await Promise.allSettled(selected.slice(offset, offset + 5).map(async entry => {
+      if ((entry.size ?? 0) > 100_000) throw new Error('Some source files exceed the 100 KB scan limit.');
+      const blob = await get(`/git/blobs/${entry.sha}`) as { content: string; encoding: string; size: number };
+      if (blob.encoding !== 'base64' || blob.size > 100_000) throw new Error('Some source files could not be scanned.');
+      const bytes = Buffer.from(blob.content, 'base64');
+      if (bytes.length > 100_000 || sourceBytes + bytes.length > 2_000_000) throw new Error('Source scan reached its 2 MB limit.');
+      sourceBytes += bytes.length;
+      sources[entry.path] = bytes.toString('utf8');
+    }));
+    const failures = results.filter(result => result.status === 'rejected');
+    if (failures.length) {
+      const failure = failures[0] as PromiseRejectedResult;
+      sourceReason = failure.reason instanceof Error && failure.reason.name !== 'TimeoutError' ? failure.reason.message : 'Source scan reached its time limit.';
+      // Preserve the successfully scanned subset, clearly marked as partial.
+      if (signal.aborted || /rate limit|GitHub/.test(sourceReason)) break;
+    }
+  }
+  const files = retained.map(entry => entry.path);
+  const architecture = buildArchitectureGraph(files, manifests);
+  architecture.responsibilities = buildResponsibilityGraph(files, sources, manifests, architecture, {
+    scanned: Object.keys(sources).length, total: sourceCandidates.length,
+    complete: Object.keys(sources).length === sourceCandidates.length,
+    ...(sourceReason ? { reason: sourceReason } : {}),
+  });
+  return { ...analysis, architecture };
 }

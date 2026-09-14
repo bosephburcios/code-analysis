@@ -4,27 +4,56 @@ import type { Analysis } from "@/lib/repository-analysis";
 
 type Language = Analysis["languages"][number];
 
+// Real GitHub-linguist colors for every language `languageFor()` in
+// repository-analysis.ts can produce, so the bar reads the same as a
+// developer already expects from GitHub's own language breakdown.
+const LANGUAGE_COLORS: Record<string, string> = {
+  TypeScript: "#3178c6", JavaScript: "#f1e05a", Python: "#3572A5", CSS: "#563d7c",
+  HTML: "#e34c26", Go: "#00ADD8", Rust: "#dea584", Java: "#b07219", Kotlin: "#A97BFF",
+  Ruby: "#701516", PHP: "#4F5D95", "C#": "#178600", C: "#555555", "C++": "#f34b7d",
+  Swift: "#F05138", Vue: "#41b883", Svelte: "#ff3e00", Shell: "#89e051", SQL: "#e38c00",
+  Dart: "#00B4AB", Other: "#8b8b8b",
+};
+function colorFor(name: string) {
+  return LANGUAGE_COLORS[name] ?? LANGUAGE_COLORS.Other;
+}
+
+// Every tool string `summarize()` can actually emit (repository-analysis.ts),
+// grouped so "detected tools" reads as categories instead of one flat pile.
+const TOOL_CATEGORIES: Record<string, string> = {
+  "Next.js": "Frameworks", React: "Frameworks", Vue: "Frameworks", Svelte: "Frameworks",
+  Vite: "Frameworks", Express: "Frameworks", FastAPI: "Frameworks", Django: "Frameworks",
+  Flask: "Frameworks", TypeScript: "Frameworks",
+  Prisma: "Data", PostgreSQL: "Data",
+  "Tailwind CSS": "Styling",
+  Docker: "Infrastructure", Terraform: "Infrastructure", "GitHub Actions": "Infrastructure", "AWS SDK": "Infrastructure",
+};
+const TOOL_CATEGORY_ORDER = ["Frameworks", "Data", "Styling", "Infrastructure", "Other"];
+function categoryFor(tool: string) {
+  return TOOL_CATEGORIES[tool] ?? "Other";
+}
+
+function LanguageBar({ languages }: { languages: Language[] }) {
+  return (
+    <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true">
+      {languages.filter(language => language.percentage > 0).map(language => (
+        <div key={language.name} style={{ width: `${language.percentage}%`, backgroundColor: colorFor(language.name) }} title={language.name} />
+      ))}
+    </div>
+  );
+}
+
 function LanguageRow({ name, count, percentage }: Language) {
   return (
-    <li>
-      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-        <span>{name}</span>
-        <span
-          className="tabular-nums text-muted-foreground"
-          title={`${count.toLocaleString()} files`}
-        >
-          {percentage}%
-        </span>
-      </div>
-      <div
-        className="h-1 overflow-hidden rounded-full bg-muted"
-        aria-hidden="true"
-      >
-        <div
-          className="h-full rounded-full bg-primary/70"
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
+    <li className="flex items-center justify-between gap-3 text-xs">
+      <span className="flex items-center gap-2 min-w-0">
+        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: colorFor(name) }} aria-hidden="true" />
+        <span className="truncate">{name}</span>
+      </span>
+      <span className="flex items-center gap-2 shrink-0 tabular-nums text-muted-foreground">
+        <span>{percentage}%</span>
+        <span className="text-muted-foreground/70">· {count.toLocaleString()} {count === 1 ? "file" : "files"}</span>
+      </span>
     </li>
   );
 }
@@ -52,7 +81,16 @@ export default function RepositoryOverview({
     }),
     { name: "Other", count: 0, percentage: 0 },
   );
+  const barLanguages = grouped.length > 0 ? [...primary, other] : primary;
   const coverage = analysis.manifestCoverage;
+
+  const toolsByCategory = new Map<string, string[]>();
+  for (const tool of analysis.tools) {
+    const category = categoryFor(tool);
+    const list = toolsByCategory.get(category) ?? [];
+    list.push(tool);
+    toolsByCategory.set(category, list);
+  }
 
   return (
     <section aria-labelledby="overview-heading" className="rounded-lg border">
@@ -75,8 +113,9 @@ export default function RepositoryOverview({
             </span>
           </p>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {analysis.ignoredFileCount.toLocaleString()} generated and
-            dependency files excluded.
+            {analysis.fileCount.toLocaleString()} retained ·{" "}
+            {analysis.ignoredFileCount.toLocaleString()} generated/dependency
+            files excluded.
           </p>
         </div>
         <section aria-labelledby="languages-heading">
@@ -91,7 +130,12 @@ export default function RepositoryOverview({
               No retained files found.
             </p>
           )}
-          <ul className="space-y-3">
+          {barLanguages.length > 0 && (
+            <div className="mb-3">
+              <LanguageBar languages={barLanguages} />
+            </div>
+          )}
+          <ul className="space-y-2">
             {primary.map((language) => (
               <LanguageRow key={language.name} {...language} />
             ))}
@@ -157,11 +201,18 @@ export default function RepositoryOverview({
               </details>
             </div>
           )}
-          <div className="flex flex-wrap gap-1.5">
-            {analysis.tools.map((tool) => (
-              <Badge key={tool} variant="secondary">
-                {tool}
-              </Badge>
+          <div className="space-y-3">
+            {TOOL_CATEGORY_ORDER.filter((category) => toolsByCategory.has(category)).map((category) => (
+              <div key={category}>
+                <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">{category}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {toolsByCategory.get(category)!.map((tool) => (
+                    <Badge key={tool} variant="secondary">
+                      {tool}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           {!analysis.tools.length && (

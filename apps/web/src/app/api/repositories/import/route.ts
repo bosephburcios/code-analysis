@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/get-session";
+import { importLimiter, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,9 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
+
+    const limit = await importLimiter.limit(session.user.id);
+    if (!limit.success) return rateLimitResponse(limit);
 
     const { url } = await request.json();
 

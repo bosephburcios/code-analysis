@@ -1,5 +1,6 @@
 import { semanticArchitectureSchema } from './semantic-schema.ts';
 import type { ArchitectureContext } from './build-ai-context.ts';
+import { semanticRole } from './semantic-roles.ts';
 
 export function validateSemanticArchitecture(input: unknown, evidence: ArchitectureContext) {
   const graph = semanticArchitectureSchema.parse(input);
@@ -9,6 +10,8 @@ export function validateSemanticArchitecture(input: unknown, evidence: Architect
   const ids = new Set<string>();
   const fail = (reason: string): never => { throw new Error(`Semantic evidence validation failed: ${reason}`); };
   for (const node of graph.nodes) {
+    if (evidence.sourceLevel && node.type === 'feature') fail('frontend/backend responsibilities must remain separate');
+    if (node.type !== semanticRole(node, evidence.components)) fail('component type contradicts source roles');
     if (ids.has(node.id)) fail('duplicate node ID');
     ids.add(node.id);
     const files = new Set<string>(); const technologies = new Set<string>();
