@@ -7,6 +7,7 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 .idea/
+.claude/
 
 # env files, anywhere in the repo
 .env
