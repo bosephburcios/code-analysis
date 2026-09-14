@@ -399,6 +399,7 @@ type FieldRefInputType<Model, FieldType> = Model extends never ? never : FieldRe
 export const ModelName = {
   Repository: 'Repository',
   ArchitectureGraph: 'ArchitectureGraph',
+  Readme: 'Readme',
   User: 'User',
   Session: 'Session',
   Account: 'Account',
@@ -418,7 +419,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "repository" | "architectureGraph" | "user" | "session" | "account" | "verification"
+    modelProps: "repository" | "architectureGraph" | "readme" | "user" | "session" | "account" | "verification"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -567,6 +568,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ArchitectureGraphCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ArchitectureGraphCountAggregateOutputType> | number
+        }
+      }
+    }
+    Readme: {
+      payload: Prisma.$ReadmePayload<ExtArgs>
+      fields: Prisma.ReadmeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ReadmeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ReadmeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>
+        }
+        findFirst: {
+          args: Prisma.ReadmeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ReadmeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>
+        }
+        findMany: {
+          args: Prisma.ReadmeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>[]
+        }
+        create: {
+          args: Prisma.ReadmeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>
+        }
+        createMany: {
+          args: Prisma.ReadmeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ReadmeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>[]
+        }
+        delete: {
+          args: Prisma.ReadmeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>
+        }
+        update: {
+          args: Prisma.ReadmeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>
+        }
+        deleteMany: {
+          args: Prisma.ReadmeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ReadmeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ReadmeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>[]
+        }
+        upsert: {
+          args: Prisma.ReadmeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ReadmePayload>
+        }
+        aggregate: {
+          args: Prisma.ReadmeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateReadme>
+        }
+        groupBy: {
+          args: Prisma.ReadmeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ReadmeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ReadmeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ReadmeCountAggregateOutputType> | number
         }
       }
     }
@@ -943,6 +1018,19 @@ export const ArchitectureGraphScalarFieldEnum = {
 export type ArchitectureGraphScalarFieldEnum = (typeof ArchitectureGraphScalarFieldEnum)[keyof typeof ArchitectureGraphScalarFieldEnum]
 
 
+export const ReadmeScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  model: 'model',
+  markdown: 'markdown',
+  generatedAt: 'generatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ReadmeScalarFieldEnum = (typeof ReadmeScalarFieldEnum)[keyof typeof ReadmeScalarFieldEnum]
+
+
 export const UserScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -1298,6 +1386,7 @@ export type PrismaClientOptions = PrismaClientOptionsWithAccelerateUrl | PrismaC
 export type GlobalOmitConfig = {
   repository?: Prisma.RepositoryOmit
   architectureGraph?: Prisma.ArchitectureGraphOmit
+  readme?: Prisma.ReadmeOmit
   user?: Prisma.UserOmit
   session?: Prisma.SessionOmit
   account?: Prisma.AccountOmit

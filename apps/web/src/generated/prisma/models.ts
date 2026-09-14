@@ -10,6 +10,7 @@
  */
 export type * from './models/Repository.ts'
 export type * from './models/ArchitectureGraph.ts'
+export type * from './models/Readme.ts'
 export type * from './models/User.ts'
 export type * from './models/Session.ts'
 export type * from './models/Account.ts'

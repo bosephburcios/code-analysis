@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, GitBranch, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { GitBranch, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import RepositoryOverview from "@/components/repository-overview";
 import { ComponentIndex } from "@/components/architecture/component-index";
 import { ArchitectureViews } from "@/components/architecture/architecture-views";
+import { ReadmeView } from "@/components/readme/readme-view";
+import { useRegisterRepositoryNavigation } from "@/components/workspace-navigation";
 import type { StoredArchitecture } from "@/lib/architecture/types";
 import type { Analysis } from "@/lib/repository-analysis";
+import type { GeneratedReadme } from "@/lib/readme/types";
 
 type WorkspaceRepository = {
   architecture: StoredArchitecture | null;
+  readme: { model: GeneratedReadme; markdown: string; generatedAt: string | null } | null;
   id: string;
   fullName: string;
   defaultBranch: string;
@@ -50,7 +53,10 @@ export default function RepositoryPage({
             data.error ?? "Unable to load analysis. Please retry.",
           );
         if (!active) return;
-        if (data.id) setCurrent(data);
+        // The analysis route doesn't return `readme` — preserve whatever the
+        // workspace already loaded instead of letting a poll/sync response
+        // silently wipe it out from `current`.
+        if (data.id) setCurrent(previous => ({ ...data, readme: data.readme ?? previous.readme }));
         if (data.status === "ANALYZING") {
           const stale =
             data.analysisStartedAt &&
@@ -79,7 +85,7 @@ export default function RepositoryPage({
     };
   }, [repository.id, repository.status, repository.architecture, attempt]);
 
-  async function handleSync() {
+  const handleSync = useCallback(async () => {
     setRequestError(null);
     setBusy(true);
     try {
@@ -91,25 +97,22 @@ export default function RepositoryPage({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'Unable to sync repository.');
-      if (data.id) setCurrent(data);
+      if (data.id) setCurrent(previous => ({ ...data, readme: data.readme ?? previous.readme }));
       setAttempt((value) => value + 1);
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : 'Unable to sync repository.');
       setBusy(false);
     }
-  }
+  }, [repository.id]);
+
+  const navigation = useMemo(() => ({ id: current.id, fullName: current.fullName, busy, sync: handleSync }), [current.id, current.fullName, busy, handleSync]);
+  useRegisterRepositoryNavigation(navigation);
 
   const analysis = current.analysis;
   const error = requestError ?? current.analysisError;
   return (
-    <main className="workspace-enter mx-auto max-w-[1500px] px-4 py-8 sm:px-8">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" /> Import repository
-      </Link>
-      <header className="my-8 flex flex-wrap items-center justify-between gap-4">
+    <main className="workspace-enter w-full px-4 py-6 sm:px-8">
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="mb-2 text-sm text-muted-foreground">
             Repository workspace
@@ -123,15 +126,6 @@ export default function RepositoryPage({
             <GitBranch className="mr-1 size-3.5" />
             {current.defaultBranch}
           </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={busy}
-            onClick={handleSync}
-          >
-            <RefreshCw className={busy ? "animate-spin" : undefined} />
-            Sync latest
-          </Button>
         </div>
       </header>
       {(busy || (!error && current.status === "IMPORTED")) && (
@@ -162,39 +156,11 @@ export default function RepositoryPage({
           </Button>
         </div>
       )}
-      <div className="mt-8 grid gap-8 lg:grid-cols-[180px_minmax(0,1fr)]">
-        <aside className="lg:border-r lg:pr-6">
-          <nav
-            aria-label="Repository documentation"
-            className="flex gap-4 text-sm lg:sticky lg:top-8 lg:flex-col lg:gap-1"
-          >
-            <p className="hidden px-3 pb-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground lg:block">
-              Repository docs
-            </p>
-            <a
-              href="#architecture"
-              className="rounded-md bg-muted px-3 py-2 font-medium"
-            >
-              Architecture
-            </a>
-            <a
-              href="#overview"
-              className="rounded-md px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              Overview
-            </a>
-            <a
-              href="#components"
-              className="rounded-md px-3 py-2 text-muted-foreground hover:bg-muted"
-            >
-              Components
-            </a>
-          </nav>
-        </aside>
+      <div className="mt-8">
         <div className="workspace-sections min-w-0 space-y-10">
           <section
             id="architecture"
-            className="scroll-mt-8"
+            className="scroll-mt-20 md:scroll-mt-8"
             aria-labelledby="architecture-heading"
           >
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -236,19 +202,38 @@ export default function RepositoryPage({
               </div>
             )}
           </section>
-          <section id="overview" className="scroll-mt-8">
-            {analysis && (
+          <section id="overview" className="scroll-mt-20 md:scroll-mt-8">
+            {analysis ? (
               <RepositoryOverview
                 analysis={analysis}
                 analyzedAt={current.analyzedAt}
               />
-            )}
+            ) : <div className="rounded-lg border p-6"><h2 className="font-semibold">Overview</h2><p className="mt-2 text-sm text-muted-foreground">The overview will be available after analysis finishes.</p></div>}
           </section>
-          {current.architecture && (
-            <section id="components" className="scroll-mt-8">
-              <ComponentIndex key={current.architecture.generatedAt ?? current.analyzedAt ?? "raw"} architecture={current.architecture} repositoryId={current.id} />
+            <section id="components" className="scroll-mt-20 md:scroll-mt-8">
+              {current.architecture ? <ComponentIndex key={current.architecture.generatedAt ?? current.analyzedAt ?? "raw"} architecture={current.architecture} repositoryId={current.id} />
+                : <div className="rounded-lg border p-6"><h2 className="font-semibold">Components</h2><p className="mt-2 text-sm text-muted-foreground">Components will appear after architecture extraction finishes.</p></div>}
             </section>
-          )}
+            <section id="readme" className="scroll-mt-20 md:scroll-mt-8">
+              <h2 className="mb-1 text-lg font-semibold">README</h2>
+              <p className="mb-4 text-sm text-muted-foreground">
+                A documentation-style README generated from this repository&apos;s own analysis.
+              </p>
+              <ol aria-label="Add this README to your project" className="mb-6 list-decimal space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
+                <li>Press <span className="font-medium text-foreground">Export README</span> in the sidebar or <span className="font-medium text-foreground">Export package</span> below, then unzip the download.</li>
+                <li>Copy <code className="text-xs">docs/architecture.png</code> into your project&apos;s <code className="text-xs">docs/</code> folder at the repository root. Create the folder if needed.</li>
+                <li>Place the included <code className="text-xs">README.md</code> at the repository root, or use the Markdown tab to download it or copy and paste its contents.</li>
+                <li>Commit both files so the architecture image appears on GitHub. The README points to <code className="text-xs">./docs/architecture.png</code>.</li>
+              </ol>
+              {current.architecture ? <ReadmeView
+                key={current.architecture.generatedAt ?? "raw"}
+                repositoryId={current.id}
+                repositoryName={current.fullName.split("/").at(-1) ?? current.fullName}
+                readme={current.readme}
+                architecture={current.architecture}
+                onGenerated={readme => setCurrent(previous => ({ ...previous, readme }))}
+              /> : <p className="rounded-lg border p-6 text-sm text-muted-foreground">Analyze the repository and generate its architecture to create a README.</p>}
+            </section>
         </div>
       </div>
     </main>

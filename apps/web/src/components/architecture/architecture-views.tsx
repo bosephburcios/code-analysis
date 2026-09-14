@@ -6,28 +6,16 @@ import { useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { reconcileSemanticRoles } from "@/lib/architecture/semantic-roles";
+import { semanticToArchitectureGraph } from "@/lib/architecture/semantic-to-raw";
 import { ArchitectureCanvas } from "./architecture-canvas";
 import { DependenciesView } from "./dependencies-view";
 import { SemanticInspector } from "./semantic-inspector";
 import type {
   ArchitectureGraph,
-  ArchitectureNode,
   StoredArchitecture,
 } from "@/lib/architecture/types";
 import type { SemanticArchitecture } from "@/lib/architecture/semantic-schema";
 
-const types: Record<
-  SemanticArchitecture["nodes"][number]["type"],
-  ArchitectureNode["type"]
-> = {
-  feature: "service",
-  frontend: "frontend",
-  backend: "api",
-  database: "database",
-  external: "external",
-  infrastructure: "infra",
-  pipeline: "service",
-};
 export function ArchitectureViews({
   repositoryId,
   architecture,
@@ -59,35 +47,7 @@ export function ArchitectureViews({
   const pending = useRef(false);
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const graph = useMemo<ArchitectureGraph | null>(
-    () =>
-      semantic
-        ? {
-            nodes: semantic.nodes.map((node) => ({
-              id: node.id,
-              label: node.label,
-              type: types[node.type],
-              metadata: {
-                technologies: node.technologies,
-                description: node.description,
-                evidence: node.files,
-                semanticType: node.type,
-                ...(node.role ? { role: node.role } : {}),
-              },
-            })),
-            edges: semantic.edges.map((edge) => ({
-              id: edge.id,
-              source: edge.source,
-              target: edge.target,
-              label: edge.label,
-              kind:
-                edge.type === "data"
-                  ? "data"
-                  : edge.type === "async"
-                    ? "async"
-                    : "sync",
-            })),
-          }
-        : null,
+    () => (semantic ? semanticToArchitectureGraph(semantic) : null),
     [semantic],
   );
 

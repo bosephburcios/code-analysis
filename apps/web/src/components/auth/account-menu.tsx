@@ -25,14 +25,14 @@ export function AccountMenu({
     <div
       className={
         stacked
-          ? "grid w-full min-w-0 gap-2 border-t pt-3"
+          ? "grid w-full min-w-0 gap-1"
           : "flex items-center gap-2"
       }
     >
       <span
         className={
           stacked
-            ? "block min-w-0 truncate text-xs text-muted-foreground"
+            ? "block min-w-0 truncate px-2 text-xs text-muted-foreground"
             : "sr-only"
         }
         title={email}

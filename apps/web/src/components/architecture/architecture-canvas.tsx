@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import {
   Background,
@@ -185,7 +185,21 @@ function LayoutLoader({ graphNodes, graphEdges, layout, onData, onError }: {
   return null;
 }
 
-export function ArchitectureCanvas({
+export const ArchitectureCanvas = forwardRef<HTMLDivElement, ArchitectureGraph & {
+  layout?: (nodes: ArchitectureNode[], edges: ArchitectureEdge[]) => LayoutGroup[] | Promise<LayoutGroup[]>;
+  onNodeClick?: (id: string) => void;
+  selectedId?: string | null;
+  highlightedIds?: Set<string> | null;
+  title?: string;
+  subtitle?: string;
+  inspectable?: boolean;
+  // Renders a clean, static-image-friendly variant for the README export
+  // path: no header bar, no zoom/fit controls, no legend, larger labels,
+  // more generous fit padding. Same node/edge styling and dark theme
+  // otherwise — this is a rendering mode, not a different visual identity.
+  exportMode?: boolean;
+  onExportReady?: () => void;
+}>(function ArchitectureCanvas({
   nodes: graphNodes,
   edges: graphEdges,
   layout = layoutArchitecture,
@@ -195,15 +209,9 @@ export function ArchitectureCanvas({
   title = "System architecture",
   subtitle = "Grouped by responsibility · relationships inferred from files",
   inspectable = false,
-}: ArchitectureGraph & {
-  layout?: (nodes: ArchitectureNode[], edges: ArchitectureEdge[]) => LayoutGroup[] | Promise<LayoutGroup[]>;
-  onNodeClick?: (id: string) => void;
-  selectedId?: string | null;
-  highlightedIds?: Set<string> | null;
-  title?: string;
-  subtitle?: string;
-  inspectable?: boolean;
-}) {
+  exportMode = false,
+  onExportReady,
+}, ref) {
   const [activeEdge, setActiveEdge] = useState<string | null>(null);
 
   // Structural layout only recomputes when the graph itself changes — never
@@ -256,7 +264,7 @@ export function ArchitectureCanvas({
           component: node,
           dimmed: highlightedIds ? !highlightedIds.has(node.id) : false,
           selected: node.id === selectedId,
-          readable: inspectable,
+          readable: inspectable || exportMode,
           onInspect: onNodeClick,
         },
         style: { width: 208, height: 118 }, // kept in lockstep with NODE_WIDTH in layout-graph.ts
@@ -312,9 +320,19 @@ export function ArchitectureCanvas({
         };
       });
     return { nodes: [...parents, ...subParents, ...children], edges };
-  }, [groups, graphNodes, graphEdges, highlightedIds, selectedId, inspectable, activeEdge, onNodeClick]);
+  }, [groups, graphNodes, graphEdges, highlightedIds, selectedId, inspectable, exportMode, activeEdge, onNodeClick]);
   const { resolvedTheme } = useTheme();
-  const fitViewOptions = { padding: inspectable ? 0.06 : 0.16, maxZoom: inspectable ? 1.15 : 1 };
+  const fitViewOptions = { padding: exportMode ? 0.1 : inspectable ? 0.06 : 0.16, maxZoom: exportMode ? 1 : inspectable ? 1.15 : 1 };
+
+  // Fires once layout has settled and ReactFlow's own fitView has had two
+  // frames to apply — the standard "wait before capturing" pattern for
+  // rasterizing a React Flow canvas (see xyflow's own image-export docs).
+  useEffect(() => {
+    if (!exportMode || !groups || !onExportReady) return;
+    let raf1 = 0, raf2 = 0;
+    raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => onExportReady()); });
+    return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); };
+  }, [exportMode, groups, onExportReady]);
 
   if (!graphNodes.length)
     return (
@@ -324,14 +342,16 @@ export function ArchitectureCanvas({
       </div>
     );
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[var(--arch-canvas-border)] bg-[var(--arch-canvas-bg)]">
+    <div ref={ref} className="relative overflow-hidden rounded-xl border border-[var(--arch-canvas-border)] bg-[var(--arch-canvas-bg)]">
       <LayoutLoader graphNodes={graphNodes} graphEdges={graphEdges} layout={layout} onData={onLayoutData} onError={onLayoutError} />
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--arch-header-border)] px-4 py-3 text-[11px] text-[var(--arch-header-text)]">
-        <span className="font-mono uppercase tracking-widest">{title}</span>
-        <span>{subtitle}</span>
-      </div>
+      {!exportMode && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--arch-header-border)] px-4 py-3 text-[11px] text-[var(--arch-header-text)]">
+          <span className="font-mono uppercase tracking-widest">{title}</span>
+          <span>{subtitle}</span>
+        </div>
+      )}
       <div
-        className="h-[520px] w-full lg:h-[680px]"
+        className={exportMode ? "h-[900px] w-[1400px]" : "h-[520px] w-full lg:h-[680px]"}
         aria-label="Grouped system architecture diagram"
       >
         {layoutFailed ? (
@@ -367,27 +387,31 @@ export function ArchitectureCanvas({
           }
         >
           <Background color="var(--arch-grid)" gap={32} size={0.6} />
-          <Controls showZoom={false} showFitView={false} showInteractive={false}>
-            <SmoothZoomControls fitViewOptions={fitViewOptions} />
-          </Controls>
-          <Panel position="top-right">
-            <div className="space-y-2 rounded-md border border-[var(--arch-panel-border)] bg-[var(--arch-panel-bg)] px-3 py-2 text-[10px] text-[var(--arch-panel-text)]">
-              <div className="flex items-center gap-2">
-                <ArrowRight size={18} /> Request / dependency
+          {!exportMode && (
+            <Controls showZoom={false} showFitView={false} showInteractive={false}>
+              <SmoothZoomControls fitViewOptions={fitViewOptions} />
+            </Controls>
+          )}
+          {!exportMode && (
+            <Panel position="top-right">
+              <div className="space-y-2 rounded-md border border-[var(--arch-panel-border)] bg-[var(--arch-panel-bg)] px-3 py-2 text-[10px] text-[var(--arch-panel-text)]">
+                <div className="flex items-center gap-2">
+                  <ArrowRight size={18} /> Request / dependency
+                </div>
+                <div className="flex items-center gap-2">
+                  <ArrowRight size={18} className="text-[var(--arch-edge-data)]" />{" "}
+                  Data access
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-[18px] border-t border-dashed" />{" "}
+                  Asynchronous
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <ArrowRight size={18} className="text-[var(--arch-edge-data)]" />{" "}
-                Data access
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-[18px] border-t border-dashed" />{" "}
-                Asynchronous
-              </div>
-            </div>
-          </Panel>
+            </Panel>
+          )}
         </ReactFlow>
         )}
       </div>
     </div>
   );
-}
+});

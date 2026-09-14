@@ -59,7 +59,11 @@ class InMemoryRateLimiter implements RateLimiter {
   }
 }
 
-function createLimiter(tokens: number, windowSeconds: number, prefix: string): RateLimiter {
+function createLimiter(
+  tokens: number,
+  windowSeconds: number,
+  prefix: string,
+): RateLimiter {
   if (redis) {
     return new Ratelimit({
       redis,
@@ -80,6 +84,7 @@ export const generalLimiter = createLimiter(60, 60, "general");
 export const importLimiter = createLimiter(5, 60, "import");
 export const analysisLimiter = createLimiter(3, 60, "analysis");
 export const semanticLimiter = createLimiter(2, 60, "semantic");
+export const readmeLimiter = createLimiter(2, 60, "readme");
 
 export function rateLimitResponse(result: RateLimitResult) {
   return new Response(
@@ -90,7 +95,10 @@ export function rateLimitResponse(result: RateLimitResult) {
       status: 429,
       headers: {
         "Content-Type": "application/json",
-        "Retry-After": Math.max(0, Math.ceil((result.reset - Date.now()) / 1000)).toString(),
+        "Retry-After": Math.max(
+          0,
+          Math.ceil((result.reset - Date.now()) / 1000),
+        ).toString(),
         "X-RateLimit-Limit": result.limit.toString(),
         "X-RateLimit-Remaining": result.remaining.toString(),
         "X-RateLimit-Reset": result.reset.toString(),

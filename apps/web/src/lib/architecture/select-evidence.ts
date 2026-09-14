@@ -4,7 +4,7 @@ import { extractSourceFacts } from './source-facts.ts';
 import type { EvidenceContext, EvidenceItem, EvidenceKind } from './evidence-types.ts';
 
 // Scores describe static relevance, not model confidence.
-export function selectFileEvidence(path: string, content: string, context: EvidenceContext): EvidenceItem[] {
+export function selectFileEvidence(path: string, content: string, context: EvidenceContext, purpose?: 'readme'): EvidenceItem[] {
   const file = ts.createSourceFile(path, content, ts.ScriptTarget.Latest, true, /\.tsx$/.test(path) ? ts.ScriptKind.TSX : /\.jsx$/.test(path) ? ts.ScriptKind.JSX : ts.ScriptKind.TS);
   const script = /\.[cm]?[jt]sx?$/.test(path);
   const facts = script ? extractSourceFacts(path, content) : null;
@@ -12,7 +12,7 @@ export function selectFileEvidence(path: string, content: string, context: Evide
   const at = (position: number) => file.getLineAndCharacterOfPosition(position).line + 1;
   const add = (kind: EvidenceKind, start: number, end: number, label: string, score: number, reasons: string[], extra: Partial<EvidenceItem> = {}) => {
     const exact = content.slice(start, end).replace(/\r\n/g, '\n');
-    const limit = kind === 'data_model' ? 40 : 24;
+    const limit = purpose === 'readme' ? 15 : kind === 'data_model' ? 40 : 24;
     const lines = exact.split('\n');
     if (!exact.trim() || lines.some(line => line.length > 1500)) return;
     const code = lines.slice(0, limit).join('\n');
@@ -93,7 +93,7 @@ export function selectFileEvidence(path: string, content: string, context: Evide
       const signatureEnd = body ? body.getStart(file) + (ts.isBlock(body) ? 1 : 0) : node.end;
       const route = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/.test(name);
       if (context.definesComponent && !integration && context.kind !== 'database' && (route || context.kind !== 'api_route')) {
-        add(route ? 'api_route' : context.kind === 'ui_component' ? 'ui_component' : 'feature', node.getStart(file), signatureEnd,
+        add(route ? 'api_route' : context.kind === 'ui_component' ? 'ui_component' : 'feature', node.getStart(file), purpose === 'readme' && !route ? node.end : signatureEnd,
           route ? `${name} route signature` : name, 10, ['Direct component reference +5', 'Defines component +5'], { symbol: name, showCode: context.kind !== 'feature' });
       }
     }

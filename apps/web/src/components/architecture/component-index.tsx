@@ -7,25 +7,11 @@ import { Input } from "@/components/ui/input";
 
 import { architectureEvidence } from "@/lib/architecture/types";
 import { Badge } from "@/components/ui/badge";
-import { reconcileSemanticRoles } from "@/lib/architecture/semantic-roles";
+import { reconcileSemanticRoles, roleLabel } from "@/lib/architecture/semantic-roles";
 import type { ArchitectureGraph, StoredArchitecture } from "@/lib/architecture/types";
 import type { SemanticArchitecture, SemanticNode } from "@/lib/architecture/semantic-schema";
 import type { ComponentEvidence } from "@/lib/architecture/evidence-types";
 import { EvidenceLoader, EvidencePanel } from "./evidence-panel";
-
-const ROLE_LABELS: Record<string, string> = {
-  ui: "Frontend", api: "Backend API", service: "Service", processor: "Processor",
-  data_access: "Data access", database: "Database", external: "External service", infrastructure: "Infrastructure",
-};
-// Graphs generated before the `role` field existed fall back to the coarser
-// `type` — same friendly labels where the two overlap.
-const TYPE_LABELS: Record<string, string> = {
-  frontend: "Frontend", backend: "Backend", database: "Database", external: "External service",
-  infrastructure: "Infrastructure", feature: "Feature", pipeline: "Service",
-};
-function roleLabel(node: SemanticNode) {
-  return (node.role && ROLE_LABELS[node.role]) || TYPE_LABELS[node.type] || node.type;
-}
 
 function ComponentRow({ node, repositoryId, semantic, rawGraph }: {
   node: SemanticNode; repositoryId: string; semantic: SemanticArchitecture; rawGraph: ArchitectureGraph;

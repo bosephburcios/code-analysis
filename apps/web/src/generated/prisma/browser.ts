@@ -28,6 +28,11 @@ export type Repository = Prisma.RepositoryModel
  */
 export type ArchitectureGraph = Prisma.ArchitectureGraphModel
 /**
+ * Model Readme
+ * 
+ */
+export type Readme = Prisma.ReadmeModel
+/**
  * Model User
  * 
  */

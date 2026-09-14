@@ -15,3 +15,17 @@ export function semanticRole(node: SemanticNode, sources: Pick<ArchitectureNode,
 export function reconcileSemanticRoles(graph: SemanticArchitecture, sources: Pick<ArchitectureNode, 'id' | 'type'>[]): SemanticArchitecture {
   return { ...graph, nodes: graph.nodes.map(node => ({ ...node, type: semanticRole(node, sources) })) };
 }
+
+// Friendly display labels for the `role` field, with a `type`-based fallback
+// for graphs generated before `role` existed.
+export const ROLE_LABELS: Record<string, string> = {
+  ui: "Frontend", api: "Backend API", service: "Service", processor: "Processor",
+  data_access: "Data access", database: "Database", external: "External service", infrastructure: "Infrastructure",
+};
+export const TYPE_LABELS: Record<string, string> = {
+  frontend: "Frontend", backend: "Backend", database: "Database", external: "External service",
+  infrastructure: "Infrastructure", feature: "Feature", pipeline: "Service",
+};
+export function roleLabel(node: Pick<SemanticNode, 'role' | 'type'>) {
+  return (node.role && ROLE_LABELS[node.role]) || TYPE_LABELS[node.type] || node.type;
+}

@@ -4,7 +4,7 @@ import type { ComponentEvidence } from './evidence-types.ts';
 import { componentEvidencePlan } from './evidence-plan.ts';
 import { selectFileEvidence, rankEvidence } from './select-evidence.ts';
 import { canInspectCode } from './code-excerpts.ts';
-import { CodeEvidenceError, fetchRepositoryTree, fetchRepositoryBlob } from './fetch-repository-source.ts';
+import { CodeEvidenceError, fetchRepositoryTree, fetchRepositoryBlob, type TreeEntry } from './fetch-repository-source.ts';
 
 // rankEvidence never surfaces more than 4 final items regardless of how many
 // files are scanned, and componentEvidencePlan's file list is already
@@ -13,10 +13,10 @@ import { CodeEvidenceError, fetchRepositoryTree, fetchRepositoryBlob } from './f
 export const EVIDENCE_FILE_CAP = 6;
 
 export async function loadComponentEvidence(input: {
-  owner: string; name: string; treeSha: string; graph: ArchitectureGraph; node: SemanticNode;
+  owner: string; name: string; treeSha: string; graph: ArchitectureGraph; node: SemanticNode; tree?: TreeEntry[]; purpose?: 'readme';
 }, fetcher: typeof fetch = fetch): Promise<ComponentEvidence> {
   const { kind, files } = componentEvidencePlan(input.graph, input.node);
-  const tree = await fetchRepositoryTree(input.owner, input.name, input.treeSha, fetcher);
+  const tree = input.tree ?? await fetchRepositoryTree(input.owner, input.name, input.treeSha, fetcher);
   const byPath = new Map(tree.map(entry => [entry.path, entry]));
   const candidates = files.filter(([path]) => canInspectCode(path)).slice(0, EVIDENCE_FILE_CAP);
   const warnings: string[] = [];
@@ -28,7 +28,7 @@ export async function loadComponentEvidence(input: {
       return [];
     }
     const bytes = await fetchRepositoryBlob(input.owner, input.name, entry.sha, fetcher);
-    return selectFileEvidence(path, bytes.toString('utf8'), context);
+    return selectFileEvidence(path, bytes.toString('utf8'), context, input.purpose);
   }));
 
   const items = results.flatMap(result => {
@@ -43,7 +43,7 @@ export async function loadComponentEvidence(input: {
     kind,
     treeSha: input.treeSha,
     totalReferences: items.length,
-    items: rankEvidence(items, kind),
+    items: input.purpose === 'readme' ? items.sort((a, b) => b.score - a.score).slice(0, 24) : rankEvidence(items, kind),
     coverage: { scanned, total: files.length, complete: scanned === candidates.length && candidates.length === files.length },
     warnings,
   };

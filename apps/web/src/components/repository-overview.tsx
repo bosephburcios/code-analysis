@@ -1,37 +1,9 @@
 import { TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Analysis } from "@/lib/repository-analysis";
+import { TOOL_CATEGORY_ORDER, colorFor, categoryFor } from "@/lib/tech-badges";
 
 type Language = Analysis["languages"][number];
-
-// Real GitHub-linguist colors for every language `languageFor()` in
-// repository-analysis.ts can produce, so the bar reads the same as a
-// developer already expects from GitHub's own language breakdown.
-const LANGUAGE_COLORS: Record<string, string> = {
-  TypeScript: "#3178c6", JavaScript: "#f1e05a", Python: "#3572A5", CSS: "#563d7c",
-  HTML: "#e34c26", Go: "#00ADD8", Rust: "#dea584", Java: "#b07219", Kotlin: "#A97BFF",
-  Ruby: "#701516", PHP: "#4F5D95", "C#": "#178600", C: "#555555", "C++": "#f34b7d",
-  Swift: "#F05138", Vue: "#41b883", Svelte: "#ff3e00", Shell: "#89e051", SQL: "#e38c00",
-  Dart: "#00B4AB", Other: "#8b8b8b",
-};
-function colorFor(name: string) {
-  return LANGUAGE_COLORS[name] ?? LANGUAGE_COLORS.Other;
-}
-
-// Every tool string `summarize()` can actually emit (repository-analysis.ts),
-// grouped so "detected tools" reads as categories instead of one flat pile.
-const TOOL_CATEGORIES: Record<string, string> = {
-  "Next.js": "Frameworks", React: "Frameworks", Vue: "Frameworks", Svelte: "Frameworks",
-  Vite: "Frameworks", Express: "Frameworks", FastAPI: "Frameworks", Django: "Frameworks",
-  Flask: "Frameworks", TypeScript: "Frameworks",
-  Prisma: "Data", PostgreSQL: "Data",
-  "Tailwind CSS": "Styling",
-  Docker: "Infrastructure", Terraform: "Infrastructure", "GitHub Actions": "Infrastructure", "AWS SDK": "Infrastructure",
-};
-const TOOL_CATEGORY_ORDER = ["Frameworks", "Data", "Styling", "Infrastructure", "Other"];
-function categoryFor(tool: string) {
-  return TOOL_CATEGORIES[tool] ?? "Other";
-}
 
 function LanguageBar({ languages }: { languages: Language[] }) {
   return (

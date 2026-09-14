@@ -53,6 +53,7 @@ export const AnyNull = runtime.AnyNull
 export const ModelName = {
   Repository: 'Repository',
   ArchitectureGraph: 'ArchitectureGraph',
+  Readme: 'Readme',
   User: 'User',
   Session: 'Session',
   Account: 'Account',
@@ -111,6 +112,19 @@ export const ArchitectureGraphScalarFieldEnum = {
 } as const
 
 export type ArchitectureGraphScalarFieldEnum = (typeof ArchitectureGraphScalarFieldEnum)[keyof typeof ArchitectureGraphScalarFieldEnum]
+
+
+export const ReadmeScalarFieldEnum = {
+  id: 'id',
+  repositoryId: 'repositoryId',
+  model: 'model',
+  markdown: 'markdown',
+  generatedAt: 'generatedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ReadmeScalarFieldEnum = (typeof ReadmeScalarFieldEnum)[keyof typeof ReadmeScalarFieldEnum]
 
 
 export const UserScalarFieldEnum = {
